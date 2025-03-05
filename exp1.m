@@ -1,3 +1,6 @@
+% Experiment 1: Evaluating Localized Contrast Enhancement
+% GHE, AHE, CLAHE
+
 % Ideal Metric Trends for Best Results:
 % Entropy: Should be moderately high (not excessive).
 % Standard Deviation: Should increase (indicating better contrast).
@@ -83,45 +86,28 @@ function exp1()
         % subplot(1, 4, 3), imshow(img_ahe), title(['AHE - Tile: ', num2str(best_ahe_tile)], 'FontSize', 10);
         % subplot(1, 4, 4), imshow(img_clahe), title(['CLAHE - Tile: ', num2str(best_clahe_tile), ' Clip: ', num2str(best_clahe_clip)], 'FontSize', 10);
 
-        % Plot figure
-        figure('Position', [200, 200, 1500, 400]);
-        sgtitle(['Contrast Enhancement: ', image_name], 'FontSize', 14, 'FontWeight', 'bold');
+        % Define output folder
+        if ~exist(output_folder, 'dir')
+            mkdir(output_folder);
+        end
         
-        % Subplot Position
-        pos_x = [0.01, 0.26, 0.51, 0.76];
-        pos_y = 0.20;
-        width = 0.23; 
-        height = 0.7;
+        % Save Original Image
+        original_output = fullfile(output_folder, sprintf('%s_Original.jpg', image_name));
+        imwrite(img, original_output);
         
-        % Original Image
-        subplot(1, 4, 1);
-        imshow(img);
-        title('Original', 'FontSize', 10);
-        set(gca, 'Position', [pos_x(1), pos_y, width, height]);
+        % Save GHE Image
+        ghe_output = fullfile(output_folder, sprintf('%s_GHE.jpg', image_name));
+        imwrite(img_ghe, ghe_output);
         
-        % GHE Image
-        subplot(1, 4, 2);
-        imshow(img_ghe);
-        title(['GHE - Bins: ', num2str(best_ghe_bins)], 'FontSize', 10);
-        set(gca, 'Position', [pos_x(2), pos_y, width, height]);
+        % Save AHE Image
+        ahe_output = fullfile(output_folder, sprintf('%s_AHE.jpg', image_name));
+        imwrite(img_ahe, ahe_output);
         
-        % AHE Image
-        subplot(1, 4, 3);
-        imshow(img_ahe);
-        title(['AHE - Tile: ', num2str(best_ahe_tile)], 'FontSize', 10);
-        set(gca, 'Position', [pos_x(3), pos_y, width, height]);
+        % Save CLAHE Image
+        clahe_output = fullfile(output_folder, sprintf('%s_CLAHE.jpg', image_name));
+        imwrite(img_clahe, clahe_output);
         
-        % CLAHE Image
-        subplot(1, 4, 4);
-        imshow(img_clahe);
-        title(['CLAHE - Tile: ', num2str(best_clahe_tile), ' Clip: ', num2str(best_clahe_clip)], 'FontSize', 10);
-        set(gca, 'Position', [pos_x(4), pos_y, width, height]);
-        
-        drawnow;
-
-        % Save image results
-        img_output = fullfile(output_folder, sprintf('Results_%s.jpg', image_name));
-        saveas(gcf, img_output);
+        disp('All images saved successfully!');
 
         % Store evaluation metrics in a table
         results_table = table(["GHE"; "AHE"; "CLAHE"], [entropy_ghe; entropy_ahe; entropy_clahe], ...
