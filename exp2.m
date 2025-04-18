@@ -55,6 +55,10 @@ for k = 1:length(imageFiles)
     med = zeros(size(orig));
     for c = 1:3
         med(:,:,c) = medfilt2(orig(:,:,c), medianWindow);
+    %% 2. Median Filtering (per channel)
+    med = zeros(size(orig));
+    for c = 1:3
+        med(:,:,c) = medfilt2(orig(:,:,c), medianWindow);
     end
 
     %% 3. Unsharp Masking (per channel)
@@ -64,8 +68,22 @@ for k = 1:length(imageFiles)
             'Radius', unsharpRadius, ...
             'Amount', unsharpAmount, ...
             'Threshold', unsharpThreshold);
+    %% 3. Unsharp Masking (per channel)
+    unsharp = zeros(size(orig));
+    for c = 1:3
+        unsharp(:,:,c) = imsharpen(orig(:,:,c), ...
+            'Radius', unsharpRadius, ...
+            'Amount', unsharpAmount, ...
+            'Threshold', unsharpThreshold);
     end
 
+    %% Evaluate Metrics
+    methods = {'gaussian', 'median', 'unsharp'};
+    images = {gauss, med, unsharp};
+
+    for i = 1:length(methods)
+        method = methods{i};
+        img = images{i};
     %% Evaluate Metrics
     methods = {'gaussian', 'median', 'unsharp'};
     images = {gauss, med, unsharp};
