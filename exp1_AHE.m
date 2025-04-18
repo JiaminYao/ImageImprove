@@ -1,6 +1,6 @@
 function exp1_AHE()
     % Define image names (Only JPG images)
-    image_names = {'D1', 'D2', 'D3', 'D4', 'D5', 'L1', 'L2', 'L3', 'L4', 'L5'};
+    image_names = {'D0', 'D1', 'D2', 'D3', 'D4', 'L0', 'L1', 'L2', 'L3', 'L4'};
     input_folder = 'dataset/exp1/';
     output_folder = 'exp1_AHE/';
 
@@ -146,7 +146,7 @@ end
 
 % ---- Visualization Function ----
 function plot_ahe_metrics(results_table, tile_sizes, image_name, output_folder)
-    figure;
+    hFig = figure;
 
     % Entropy Plot
     subplot(2,3,1);
@@ -193,5 +193,6 @@ function plot_ahe_metrics(results_table, tile_sizes, image_name, output_folder)
 
     % Save the plot in JPG format
     plot_filename = fullfile(output_folder, sprintf('AHE_Tile_Metrics_%s.jpg', image_name));
-    saveas(gcf, plot_filename);
+    saveas(hFig, plot_filename);  % Use the figure handle
+    close(hFig);  % Optional: close the figure after saving
 end

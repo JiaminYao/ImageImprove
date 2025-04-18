@@ -1,112 +1,145 @@
-% Experiment 2: Edge-Preserving Noise Reduction and Sharpness Enhancement
-% MATLAB script to compare Gaussian Smoothing, Median Filtering, and Unsharp Masking with color output
-
 clc; clear; close all;
 
-% Define the dataset folder
-input_folder = 'dataset/exp2/';
-output_folder = 'exp2_results/';
-
-% Create output directory if it doesn't exist
-if ~exist(output_folder, 'dir')
-    mkdir(output_folder);
+outputDir = 'exp2_results';
+if ~exist(outputDir, 'dir')
+    mkdir(outputDir);
 end
 
-% Get list of images in the dataset folder
-image_files = dir(fullfile(input_folder, '*.jpg')); % Change to '*.png' if needed
-num_images = length(image_files);
+%% Save images and compile results
+results_table = [];
 
-% Preallocate results table
-results = [];
+%% Parameters
+imageDir = 'dataset/exp2';  % Directory containing color images
+imageFiles = dir(fullfile(imageDir, '*.jpg'));
 
-% Loop through all images in the dataset
-for i = 1:num_images
-    % Read image
-    img_name = image_files(i).name;
-    img_path = fullfile(input_folder, img_name);
-    img = im2double(imread(img_path)); % Convert to double for processing
+gaussianSigma = 0.2;
 
-    % Convert to grayscale for evaluation metrics
-    if size(img, 3) == 3
-        img_gray = rgb2gray(img);
-    else
-        img_gray = img;
+unsharpAmount = 0.5;
+unsharpRadius = 1;
+unsharpThreshold = 0;
+
+medianWindow = [3 3];
+
+%% Initialize Results
+results = struct();
+
+%% Helper Metric Functions
+compute_ssim = @(a,b) ssim(a, b);
+compute_psnr = @(a,b) psnr(a, b);
+compute_mse  = @(a,b) mean((a(:) - b(:)).^2);
+
+compute_edge_strength = @(img_rgb) struct( ...
+    'sobel', mean(edge(rgb2gray(img_rgb), 'sobel'), 'all'), ...
+    'laplacianVar', var(imfilter(rgb2gray(img_rgb), fspecial('laplacian', 0.2)), 0, 'all') ...
+);
+
+ring_artifact_detection = @(img_rgb) std(imfilter(rgb2gray(img_rgb), fspecial('laplacian'), 'replicate'), 0, 'all');
+
+%% Loop through all images
+for k = 1:length(imageFiles)
+    imgName = imageFiles(k).name;
+    imgPath = fullfile(imageDir, imgName);
+    origRGB = imread(imgPath);
+    orig = im2double(origRGB);  % Keep as RGB
+
+    res = struct();
+    res.original = orig;
+
+    %% 1. Gaussian Smoothing (per channel)
+    gauss = zeros(size(orig));
+    for c = 1:3
+        gauss(:,:,c) = imgaussfilt(orig(:,:,c), gaussianSigma);
     end
 
-    % ========================= Filtering Techniques (Color Processing) =========================
-    
-    % Gaussian Smoothing (Applied to Each RGB Channel)
-    img_gaussian = zeros(size(img));
-    for c = 1:size(img, 3)
-        img_gaussian(:,:,c) = imgaussfilt(img(:,:,c), 1); % Apply Gaussian smoothing to each channel
+    %% 2. Median Filtering (per channel)
+    med = zeros(size(orig));
+    for c = 1:3
+        med(:,:,c) = medfilt2(orig(:,:,c), medianWindow);
     end
 
-    % Median Filtering (Applied to Each RGB Channel)
-    img_median = zeros(size(img));
-    for c = 1:size(img, 3)
-        img_median(:,:,c) = medfilt2(img(:,:,c), [5 5]); % Apply median filtering to each channel
+    %% 3. Unsharp Masking (per channel)
+    unsharp = zeros(size(orig));
+    for c = 1:3
+        unsharp(:,:,c) = imsharpen(orig(:,:,c), ...
+            'Radius', unsharpRadius, ...
+            'Amount', unsharpAmount, ...
+            'Threshold', unsharpThreshold);
     end
 
-    % Unsharp Masking (Applied to Each RGB Channel)
-    img_unsharp = zeros(size(img));
-    for c = 1:size(img, 3)
-        blurred = imgaussfilt(img(:,:,c), 2); % Blur each channel
-        img_unsharp(:,:,c) = img(:,:,c) + (img(:,:,c) - blurred); % Apply sharpening
+    %% Evaluate Metrics
+    methods = {'gaussian', 'median', 'unsharp'};
+    images = {gauss, med, unsharp};
+
+    for i = 1:length(methods)
+        method = methods{i};
+        img = images{i};
+
+        res.(method).image = img;
+        res.(method).ssim = compute_ssim(orig, img);
+        res.(method).psnr = compute_psnr(orig, img);
+        res.(method).mse  = compute_mse(orig, img);
+        res.(method).edges = compute_edge_strength(img);
+        res.(method).ring = ring_artifact_detection(img);
     end
 
-    % ========================= Evaluation Metrics (Grayscale) =========================
-    
-    % SSIM (Structural Similarity Index)
-    ssim_gaussian = ssim(rgb2gray(img_gaussian), img_gray);
-    ssim_median = ssim(rgb2gray(img_median), img_gray);
-    ssim_unsharp = ssim(rgb2gray(img_unsharp), img_gray);
-
-    % PSNR (Peak Signal-to-Noise Ratio)
-    psnr_gaussian = psnr(rgb2gray(img_gaussian), img_gray);
-    psnr_median = psnr(rgb2gray(img_median), img_gray);
-    psnr_unsharp = psnr(rgb2gray(img_unsharp), img_gray);
-
-    % MSE (Mean Squared Error)
-    mse_gaussian = immse(rgb2gray(img_gaussian), img_gray);
-    mse_median = immse(rgb2gray(img_median), img_gray);
-    mse_unsharp = immse(rgb2gray(img_unsharp), img_gray);
-
-    % Edge Strength Analysis (Sobel Operator & Laplacian Variance)
-    sobel_original = sum(sum(edge(img_gray, 'sobel')));
-    sobel_gaussian = sum(sum(edge(rgb2gray(img_gaussian), 'sobel')));
-    sobel_median = sum(sum(edge(rgb2gray(img_median), 'sobel')));
-    sobel_unsharp = sum(sum(edge(rgb2gray(img_unsharp), 'sobel')));
-
-    laplacian_original = var(double(del2(img_gray)));
-    laplacian_gaussian = var(double(del2(rgb2gray(img_gaussian))));
-    laplacian_median = var(double(del2(rgb2gray(img_median))));
-    laplacian_unsharp = var(double(del2(rgb2gray(img_unsharp))));
-
-    % Ring Artifact Detection (Detects unwanted halos from over-sharpening)
-    ring_artifact_unsharp = sum(sum(edge(rgb2gray(img_unsharp), 'log')));
-
-    % ========================= Save Processed Images (Color) =========================
-    
-    imwrite(img_gaussian, fullfile(output_folder, ['gaussian_' img_name]));
-    imwrite(img_median, fullfile(output_folder, ['median_' img_name]));
-    imwrite(img_unsharp, fullfile(output_folder, ['unsharp_' img_name]));
-
-    % ========================= Store Results =========================
-    
-    results = [results; {img_name, ...
-        ssim_gaussian, psnr_gaussian, mse_gaussian, sobel_gaussian, laplacian_gaussian, ...
-        ssim_median, psnr_median, mse_median, sobel_median, laplacian_median, ...
-        ssim_unsharp, psnr_unsharp, mse_unsharp, sobel_unsharp, laplacian_unsharp, ring_artifact_unsharp}];
+    results.(sprintf('image_%d', k)) = res;
 end
 
-% Convert results to table and save
-results_table = cell2table(results, ...
-    'VariableNames', {'Image', ...
-    'SSIM_Gaussian', 'PSNR_Gaussian', 'MSE_Gaussian', 'Sobel_Gaussian', 'Laplacian_Gaussian', ...
-    'SSIM_Median', 'PSNR_Median', 'MSE_Median', 'Sobel_Median', 'Laplacian_Median', ...
-    'SSIM_Unsharp', 'PSNR_Unsharp', 'MSE_Unsharp', 'Sobel_Unsharp', 'Laplacian_Unsharp', 'Ring_Artifact_Unsharp'});
+%% Print Summary
+fprintf('\n--- Results Summary ---\n');
+for k = 1:length(imageFiles)
+    imgID = sprintf('image_%d', k);
+    fprintf('\nImage %d: %s\n', k, imageFiles(k).name);
 
-% Save results to CSV file
-writetable(results_table, fullfile(output_folder, 'exp2_results.csv'));
+    for method = ["gaussian", "median", "unsharp"]
+        r = results.(imgID).(method);
+        fprintf('%s:\n', upper(method));
+        fprintf('  SSIM: %.4f | PSNR: %.2f | MSE: %.4f\n', r.ssim, r.psnr, r.mse);
+        fprintf('  Sobel Edge Strength: %.4f | Laplacian Variance: %.4f\n', ...
+            r.edges.sobel, r.edges.laplacianVar);
+        fprintf('  Ring Artifact Score: %.4f\n', r.ring);
+    end
+end
 
-disp('Experiment 2 completed. Results saved.');
+% Visualization for all images
+for k = 1:length(imageFiles)
+    imgID = sprintf('image_%d', k);
+    figure('Name', ['Color Comparison - ' imageFiles(k).name]);
+
+    subplot(2,2,1); imshow(results.(imgID).original); title('Original');
+    subplot(2,2,2); imshow(results.(imgID).gaussian.image); title('Gaussian Smoothing');
+    subplot(2,2,3); imshow(results.(imgID).median.image); title('Median Filtering');
+    subplot(2,2,4); imshow(results.(imgID).unsharp.image); title('Unsharp Masking');
+end
+
+for k = 1:length(imageFiles)
+    imgID = sprintf('image_%d', k);
+    imgName = imageFiles(k).name;
+    [~, baseName, ~] = fileparts(imgName);
+
+    for method = ["gaussian", "median", "unsharp"]
+        r = results.(imgID).(method);
+        processed_img = r.image;
+
+        % Save image
+        output_img_path = fullfile(outputDir, sprintf('%s_%s.jpg', baseName, method));
+        imwrite(processed_img, output_img_path);
+
+        % Append metrics to table
+        results_table = [results_table; {
+            imgName, char(method), ...
+            r.ssim, r.psnr, r.mse, ...
+            r.edges.sobel, r.edges.laplacianVar, ...
+            r.ring
+        }];
+    end
+end
+
+%% Save results as CSV
+headers = {'Image_Name', 'Method', 'SSIM', 'PSNR', 'MSE', ...
+           'Sobel_Edge', 'Laplacian_Var', 'Ring_Artifact_Score'};
+
+results_table = cell2table(results_table, 'VariableNames', headers);
+writetable(results_table, fullfile(outputDir, 'exp2_metrics_summary.csv'));
+
+fprintf('\nAll processed images and metrics saved in: %s\n', outputDir);

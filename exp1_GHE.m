@@ -1,6 +1,6 @@
 function exp1_GHE()
     % Define image names (Only JPG images)
-    image_names = {'D1', 'D2', 'D3', 'D4', 'D5', 'L1', 'L2', 'L3', 'L4', 'L5'};
+    image_names = {'D0', 'D1', 'D2', 'D3', 'D4', 'L0', 'L1', 'L2', 'L3', 'L4'};
     input_folder = 'dataset/exp1/';
     output_folder = 'exp1_GHE/';
 
